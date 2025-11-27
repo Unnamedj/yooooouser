@@ -1,0 +1,56 @@
+const express = require("express");
+const app = express();
+
+app.use(express.json());
+
+const servers = {};
+const EXPIRE = 20000;
+
+function clean() {
+  const now = Date.now();
+  for (const jobId in servers) {
+    for (const uid in servers[jobId]) {
+      if (now - servers[jobId][uid].last > EXPIRE) {
+        delete servers[jobId][uid];
+      }
+    }
+    if (Object.keys(servers[jobId]).length === 0) {
+      delete servers[jobId];
+    }
+  }
+}
+
+app.post("/api/track", (req, res) => {
+  const { userId, jobId, username } = req.body || {};
+
+  if (!userId || !jobId) {
+    return res.status(400).send("ERR");
+  }
+
+  if (!servers[jobId]) servers[jobId] = {};
+
+  servers[jobId][userId] = {
+    username: username || "Unknown",
+    last: Date.now()
+  };
+
+  res.send("OK");
+});
+
+app.get("/api/track", (req, res) => {
+  const jobId = req.query.jobId;
+
+  if (!jobId || !servers[jobId]) {
+    return res.send("[]");
+  }
+
+  const ids = Object.keys(servers[jobId]).map(Number);
+
+  res.send(JSON.stringify(ids));
+});
+
+setInterval(clean, 3000);
+
+app.listen(3000, () => {
+  console.log("KANAN USERS API ACTIVE");
+});
